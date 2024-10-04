@@ -1,11 +1,10 @@
 <template>
   <div class="flex bg-gray-50 min-h-screen">
-    <!-- Sidebar -->
     <aside 
       class="bg-indigo-700 p-6 w-72 min-h-screen text-white transition-all duration-300 ease-in-out"
     >
       <div class="flex justify-between items-center mb-10">
-        <h1 class="font-bold text-2xl tracking-tight">Task Manager</h1>
+        <h1 class="font-bold text-2xl tracking-tight">Gestor de Proyectos</h1>
       </div>
       <nav class="space-y-2">
         <router-link 
