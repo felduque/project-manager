@@ -1,6 +1,7 @@
 <template>
   <div class="p-4 projects-container">
-    <div class="flex justify-end items-center mb-6">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="font-bold text-3xl text-gray-800">Proyectos</h1>
       <Button label="Nuevo Proyecto" icon="pi pi-plus" @click="openProjectModal" class="p-button-primary" />
     </div>
 
@@ -51,6 +52,19 @@
       </template>
     </Dialog>
 
+    <Dialog v-model:visible="isDeleteConfirmationOpen" :modal="true" header="Confirmar eliminación" :style="{ width: '50vw' }">
+      <p class="mb-4">¿Estás seguro de que quieres eliminar el proyecto "{{ projectToDelete?.name }}"?</p>
+      <p class="mb-4">Este proyecto tiene {{ projectTaskCount(projectToDelete?.id) }} tareas asociadas.</p>
+      <div class="mb-4 field">
+        <label for="transfer-project" class="block mb-2 font-medium">Transferir tareas a:</label>
+        <Dropdown id="transfer-project" v-model="selectedTransferProject" :options="transferProjectOptions" optionLabel="name" placeholder="Selecciona un proyecto" class="w-full" />
+      </div>
+      <template #footer>
+        <Button label="Cancelar" icon="pi pi-times" @click="closeDeleteConfirmation" class="p-button-text" />
+        <Button label="Eliminar" icon="pi pi-trash" @click="deleteProject" class="p-button-danger" />
+      </template>
+    </Dialog>
+
     <ConfirmDialog></ConfirmDialog>
   </div>
 </template>
@@ -68,6 +82,7 @@ import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import ProgressBar from 'primevue/progressbar'
 import ConfirmDialog from 'primevue/confirmdialog'
+import Dropdown from 'primevue/dropdown'
 
 const store = useStore()
 const confirm = useConfirm()
@@ -75,10 +90,13 @@ const toast = useToast()
 
 const projects = computed(() => store.state.projects)
 const isProjectModalOpen = ref(false)
+const isDeleteConfirmationOpen = ref(false)
 const currentProject = reactive({ id: null, name: '', description: '' })
 const editingProject = ref(false)
 const submitted = ref(false)
 const searchQuery = ref('')
+const projectToDelete = ref(null)
+const selectedTransferProject = ref(null)
 
 const rules = {
   currentProject: {
@@ -95,12 +113,16 @@ const filteredProjects = computed(() => {
   )
 })
 
+const transferProjectOptions = computed(() => {
+  return projects.value.filter(project => project.id !== projectToDelete.value?.id)
+})
+
 const projectTaskCount = (projectId) => {
-  return store.state.tasks.filter(task => task.projectId === projectId).length
+  return store.getters.projectTasks(projectId).length
 }
 
 const completedTaskCount = (projectId) => {
-  return store.state.tasks.filter(task => task.projectId === projectId && task.state === 'Completado').length
+  return store.getters.projectTasks(projectId).filter(task => task.state === 'Completado').length
 }
 
 const projectProgress = (projectId) => {
@@ -146,18 +168,26 @@ const editProject = (project) => {
 }
 
 const confirmDeleteProject = (project) => {
-  confirm.require({
-    message: `¿Estás seguro de que quieres eliminar el proyecto "${project.name}"?`,
-    header: 'Confirmar eliminación',
-    icon: 'pi pi-exclamation-triangle',
-    accept: () => deleteProject(project.id)
-  })
+  projectToDelete.value = project
+  selectedTransferProject.value = null
+  isDeleteConfirmationOpen.value = true
 }
 
-const deleteProject = async (projectId) => {
+const closeDeleteConfirmation = () => {
+  isDeleteConfirmationOpen.value = false
+  projectToDelete.value = null
+  selectedTransferProject.value = null
+}
+
+const deleteProject = async () => {
   try {
-    await store.dispatch('deleteProject', { projectId })
+    await store.dispatch('deleteProject', {
+      projectId: projectToDelete.value.id,
+      transferTasks: !!selectedTransferProject.value,
+      targetProjectId: selectedTransferProject.value?.id
+    })
     toast.add({ severity: 'success', summary: 'Proyecto eliminado', detail: 'El proyecto ha sido eliminado exitosamente', life: 3000 })
+    closeDeleteConfirmation()
   } catch (error) {
     toast.add({ severity: 'error', summary: 'Error', detail: error.message, life: 3000 })
   }
